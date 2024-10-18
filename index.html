@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gradient Descent on 3D Surface</title>
+    <!-- Load Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <!-- Load MathJax for LaTeX rendering -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        /* Overall page styling */
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #ffffff; /* White for background outside the box */
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background-color: #f2f1ef; /* Light warm grey inside the container */
+            border-radius: 8px;
+            margin-top: 40px;
+            text-align: center; /* Center content inside the container */
+        }
+
+        /* Center the plot */
+        #plot {
+            display: block;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Responsive styling */
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="plot"></div>
+    </div>
+
+    <script>
+        // Function f(x, y) = x^2 + y^2
+        function f(x, y) {
+            return x * x + y * y;
+        }
+
+        // Gradient function for f(x, y) = x^2 + y^2
+        function gradient(x, y) {
+            return { dx: 2 * x, dy: 2 * y };
+        }
+
+        // Perform one iteration of gradient descent
+        function gradientDescentStep(x, y, alpha) {
+            const grad = gradient(x, y);
+            const xNew = x - alpha * grad.dx;
+            const yNew = y - alpha * grad.dy;
+            return { x: xNew, y: yNew };
+        }
+
+        // Generate data for surface plot
+        function generateSurfaceData() {
+            const xRange = [...Array(50).keys()].map(i => -5 + i * 0.2);  // X values from -5 to 5
+            const yRange = [...Array(50).keys()].map(i => -5 + i * 0.2);  // Y values from -5 to 5
+
+            let zValues = [];
+            for (let i = 0; i < xRange.length; i++) {
+                let row = [];
+                for (let j = 0; j < yRange.length; j++) {
+                    row.push(f(xRange[i], yRange[j]));
+                }
+                zValues.push(row);
+            }
+
+            return { x: xRange, y: yRange, z: zValues };
+        }
+
+        // Function to plot the 3D surface and gradient descent
+        function plotSurface() {
+            const surfaceData = generateSurfaceData();
+
+            // Initial starting point (x0, y0) = (3, 4)
+            let x0 = 3;
+            let y0 = 4;
+
+            // After one iteration of gradient descent
+            const alpha = 0.1;  // Learning rate
+            const { x: x1, y: y1 } = gradientDescentStep(x0, y0, alpha);
+
+            const surfacePlot = {
+                x: surfaceData.x,
+                y: surfaceData.y,
+                z: surfaceData.z,
+                type: 'surface',
+                colorscale: 'YlGnBu',  // Softer, better contrast color scale
+                showscale: false,  // Hide the color bar scale
+                opacity: 0.9,  // Slight transparency to improve path visibility
+            };
+
+            // Starting point (red)
+            const startPoint = {
+                type: 'scatter3d',
+                mode: 'markers',
+                x: [x0],
+                y: [y0],
+                z: [f(x0, y0)],
+                marker: { color: '#e74c3c', size: 6 },  // Red point for visibility
+                name: 'Start (3, 4)'
+            };
+
+            // End point (orange)
+            const endPoint = {
+                type: 'scatter3d',
+                mode: 'markers',
+                x: [x1],
+                y: [y1],
+                z: [f(x1, y1)],
+                marker: { color: '#f39c12', size: 6 },  // Orange point for visibility
+                name: 'End (2.4, 3.2)'
+            };
+
+            // Path (black)
+            const descentPath = {
+                type: 'scatter3d',
+                mode: 'lines',
+                x: [x0, x1],
+                y: [y0, y1],
+                z: [f(x0, y0), f(x1, y1)],
+                line: { color: '#000000', width: 4 },  // Black line for visibility
+                name: 'Descent Path'
+            };
+
+            const layout = {
+                autosize: true,
+                scene: {
+                    xaxis: { title: 'x', linewidth: 2, showspikes: false, backgroundcolor: '#f2f1ef', showgrid: true },
+                    yaxis: { title: 'y', linewidth: 2, showspikes: false, backgroundcolor: '#f2f1ef', showgrid: true },
+                    zaxis: { title: 'f(x, y)', linewidth: 2, showspikes: false, backgroundcolor: '#f2f1ef', showgrid: true },
+                    aspectratio: { x: 1, y: 1, z: 0.7 }, // Adjust the 3D aspect ratio for better view
+                    camera: {
+                        eye: { x: -1.5, y: -1.5, z: 2 }  // Rotate the camera 180°
+                    },
+                    bgcolor: '#f2f1ef',  // Background color inside the 3D scene
+                },
+                margin: { l: 0, r: 0, b: 0, t: 0 },
+                height: 600,  // Adjust height for a better fit
+                paper_bgcolor: '#f2f1ef',  // Light warm grey inside the container
+                plot_bgcolor: '#ecf0f1'
+            };
+
+            const config = {
+                displayModeBar: false  // Hide the Plotly toolbar
+            };
+
+            Plotly.newPlot('plot', [surfacePlot, startPoint, endPoint, descentPath], layout, config);
+        }
+
+        // Ensure the plot renders on page load
+        window.onload = function() {
+            plotSurface();
+            MathJax.typeset();  // Rerender LaTeX equations
+        };
+    </script>
+</body>
+</html>
+     
