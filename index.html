@@ -20,7 +20,6 @@
         }
 
         .container {
-            width: 100%;
             max-width: 900px;
             margin: 0 auto;
             padding: 40px 20px;
@@ -28,15 +27,13 @@
             border-radius: 8px;
             margin-top: 40px;
             text-align: center; /* Center content inside the container */
-            box-sizing: border-box; /* Ensure padding and border are included in width */
         }
 
         /* Center the plot */
         #plot {
             display: block;
+            margin: 0 auto;
             width: 100%;
-            height: 100%;
-            min-height: 500px; /* Minimum height for better display on small screens */
         }
 
         /* Responsive styling */
@@ -88,7 +85,19 @@
             return { x: xRange, y: yRange, z: zValues };
         }
 
-        // Function to plot the 3D surface and gradient descent
+        // Function to generate intermediate points for animation
+        function generateIntermediatePoints(x0, y0, x1, y1, steps) {
+            let points = [];
+            for (let i = 0; i <= steps; i++) {
+                const t = i / steps;
+                const x = (1 - t) * x0 + t * x1;
+                const y = (1 - t) * y0 + t * y1;
+                points.push({ x: x, y: y, z: f(x, y) });
+            }
+            return points;
+        }
+
+        // Function to plot the 3D surface and gradient descent with animation
         function plotSurface() {
             const surfaceData = generateSurfaceData();
 
@@ -100,6 +109,10 @@
             const alpha = 0.1;  // Learning rate
             const { x: x1, y: y1 } = gradientDescentStep(x0, y0, alpha);
 
+            // Generate intermediate points for animation (e.g., 50 steps)
+            const animationSteps = 50;
+            const intermediatePoints = generateIntermediatePoints(x0, y0, x1, y1, animationSteps);
+
             const surfacePlot = {
                 x: surfaceData.x,
                 y: surfaceData.y,
@@ -110,37 +123,44 @@
                 opacity: 0.9,  // Slight transparency to improve path visibility
             };
 
-            // Starting point (red)
-            const startPoint = {
-                type: 'scatter3d',
-                mode: 'markers',
-                x: [x0],
-                y: [y0],
-                z: [f(x0, y0)],
-                marker: { color: '#e74c3c', size: 6 },  // Red point for visibility
-                name: 'Start (3, 4)'
-            };
-
-            // End point (orange)
-            const endPoint = {
-                type: 'scatter3d',
-                mode: 'markers',
-                x: [x1],
-                y: [y1],
-                z: [f(x1, y1)],
-                marker: { color: '#f39c12', size: 6 },  // Orange point for visibility
-                name: 'End (2.4, 3.2)'
-            };
-
-            // Path (black)
+            // Plot the path of the descent (slightly above the surface)
             const descentPath = {
                 type: 'scatter3d',
                 mode: 'lines',
                 x: [x0, x1],
                 y: [y0, y1],
                 z: [f(x0, y0), f(x1, y1)],
-                line: { color: '#000000', width: 4 },  // Black line for visibility
-                name: 'Descent Path'
+                line: { color: '#000000', width: 5 },  // Thick black line for visibility
+            };
+
+            // Red start point with color #e74c3c
+            const startPoint = {
+                type: 'scatter3d',
+                mode: 'markers',
+                x: [x0],
+                y: [y0],
+                z: [f(x0, y0)],
+                marker: { color: '#e74c3c', size: 6 },  // Start point with specified color
+            };
+
+            // Red end point with color #e74c3c
+            const endPoint = {
+                type: 'scatter3d',
+                mode: 'markers',
+                x: [x1],
+                y: [y1],
+                z: [f(x1, y1)],
+                marker: { color: '#e74c3c', size: 6 },  // End point with specified color
+            };
+
+            // Moving point to show the animation
+            const movingPoint = {
+                type: 'scatter3d',
+                mode: 'markers',
+                x: [x0],
+                y: [y0],
+                z: [f(x0, y0)],
+                marker: { color: '#ffa500', size: 4 },  // Smaller orange point for visibility
             };
 
             const layout = {
@@ -151,27 +171,55 @@
                     zaxis: { title: 'f(x, y)', linewidth: 2, showspikes: false, backgroundcolor: '#f2f1ef', showgrid: true },
                     aspectratio: { x: 1, y: 1, z: 0.7 }, // Adjust the 3D aspect ratio for better view
                     camera: {
-                        eye: { x: -1.5, y: -1.5, z: 2 }  // Rotate the camera 180°
+                        eye: { x: -1.5, y: -1.5, z: 1.5 }  // Rotate camera 180 degrees
                     },
                     bgcolor: '#f2f1ef',  // Background color inside the 3D scene
+                    dragmode: false,  // Disable zooming and dragging
                 },
                 margin: { l: 0, r: 0, b: 0, t: 0 },
-                height: '100%',  // Make height responsive
+                height: 600,  // Adjust height for a better fit
                 paper_bgcolor: '#f2f1ef',  // Light warm grey inside the container
-                plot_bgcolor: '#ecf0f1'
+                showlegend: false,  // Hide legend
             };
 
             const config = {
                 displayModeBar: false,  // Hide the Plotly toolbar
-                responsive: true  // Enable responsive resizing
+                scrollZoom: false  // Disable zooming
             };
 
-            Plotly.newPlot('plot', [surfacePlot, startPoint, endPoint, descentPath], layout, config);
+            Plotly.newPlot('plot', [surfacePlot, descentPath, startPoint, endPoint, movingPoint], layout, config);
 
-            // Ensure the plot resizes with the window
-            window.addEventListener('resize', function() {
-                Plotly.Plots.resize(document.getElementById('plot'));
-            });
+            // Function to animate the point along the path
+            function animatePoint() {
+                let frame = 0;
+                const interval = setInterval(() => {
+                    if (frame >= intermediatePoints.length) {
+                        frame = 0;  // Reset to loop the animation
+                    }
+                    const point = intermediatePoints[frame];
+                    Plotly.animate('plot', {
+                        data: [{
+                            x: [point.x],
+                            y: [point.y],
+                            z: [point.z]
+                        }],
+                        traces: [4],  // The moving point trace
+                        layout: {}
+                    }, {
+                        transition: {
+                            duration: 50,  // Short duration for smooth movement
+                            easing: 'linear'
+                        },
+                        frame: {
+                            duration: 50
+                        }
+                    });
+                    frame++;
+                }, 50);  // Animation speed (frame duration)
+            }
+
+            // Start the animation
+            animatePoint();
         }
 
         // Ensure the plot renders on page load
